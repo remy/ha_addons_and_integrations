@@ -33,15 +33,16 @@ export default async function handler(context) {
 
     const source = await hass.getState(SOURCE_ENTITY);
     if (source.state !== 'PRE') {
+      const outputState = mapNonPreState(source.state);
       const payload = {
         success: true,
         matched: false,
-        state: 'unavailable',
-        reason: `source sensor not in PRE state (was "${source.state}")`,
+        state: outputState,
+        sourceState: source.state,
       };
-      await hass.setState(OUTPUT_ENTITY, 'unavailable', {
+      await hass.setState(OUTPUT_ENTITY, outputState, {
         friendly_name: 'BHA Broadcaster',
-        reason: payload.reason,
+        source_state: source.state,
         source_entity: SOURCE_ENTITY,
         source_url: SOURCE_URL,
         last_update: now,
@@ -303,4 +304,21 @@ function anyMatch(candidate, wanted) {
   return wanted.some(
     (w) => w && (candidate === w || candidate.includes(w) || w.includes(candidate))
   );
+}
+
+// ha-teamtracker soccer states: PRE, IN, POST, BYE, NOT_FOUND.
+// Only PRE has an upcoming fixture worth scraping.
+function mapNonPreState(state) {
+  switch (state) {
+    case 'IN':
+      return 'Match in progress';
+    case 'POST':
+      return 'Match complete';
+    case 'BYE':
+      return 'Bye week';
+    case 'NOT_FOUND':
+      return 'No upcoming match';
+    default:
+      return 'unavailable';
+  }
 }
